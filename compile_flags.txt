@@ -1,0 +1,10 @@
+-I./src/imgui/
+-I./src/imgui/backends/
+-static-libgcc
+-static-libstdc++
+-static
+-ldwmapi
+-ld3dcompiler
+-ld3d11
+-lgdi32
+
