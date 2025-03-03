@@ -13,8 +13,12 @@
 #include "imgui_impl_dx11.h"
 #include "imgui_impl_win32.h"
 #include <d3d11.h>
+#include <hidusage.h>
 #include <iostream>
 #include <tchar.h>
+#include <windows.h>
+
+#include <strsafe.h>
 
 // Data
 static ID3D11Device *g_pd3dDevice = nullptr;
@@ -45,11 +49,11 @@ int main(int, char **) {
                       nullptr,
                       nullptr,
                       nullptr,
-                      L"ImGui Example",
+                      L"keyboardAttachWindow",
                       nullptr};
     ::RegisterClassExW(&wc);
     HWND hwnd = ::CreateWindowW(
-        wc.lpszClassName, L"Dear ImGui DirectX11 Example", WS_OVERLAPPEDWINDOW,
+        wc.lpszClassName, L"Attach Keyboards to a Window", WS_OVERLAPPEDWINDOW,
         100, 100, 1280, 800, nullptr, nullptr, wc.hInstance, nullptr);
 
     if (!hwnd) {
@@ -58,10 +62,28 @@ int main(int, char **) {
         return 1;
     }
 
+    // https://devblogs.microsoft.com/oldnewthing/20160627-00/?p=93755
+    // https://learn.microsoft.com/en-us/windows/win32/inputdev/raw-input?redirectedfrom=MSDN
+    RAWINPUTDEVICE rdev;
+    rdev.usUsagePage = HID_USAGE_PAGE_GENERIC;
+    rdev.usUsage = HID_USAGE_GENERIC_KEYBOARD;
+    rdev.dwFlags = RIDEV_INPUTSINK | RIDEV_NOHOTKEYS;
+    rdev.hwndTarget = hwnd;
+    if (!RegisterRawInputDevices(&rdev, 1, sizeof(rdev))) {
+        MessageBox(nullptr, "Failed to attach raw input device", "Error!",
+                   MB_OK | MB_ICONERROR);
+        UnregisterClassW(wc.lpszClassName, wc.hInstance);
+        return 1;
+    }
+
     // Initialize Direct3D
     if (!CreateDeviceD3D(hwnd)) {
+        MessageBox(nullptr, "Failed to initialize Direct3D", "Error!",
+                   MB_OK | MB_ICONERROR);
+
         CleanupDeviceD3D();
-        ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+
+        UnregisterClassW(wc.lpszClassName, wc.hInstance);
         return 1;
     }
 
@@ -138,6 +160,9 @@ int main(int, char **) {
         // HRESULT hr = g_pSwapChain->Present(0, 0); // Present without vsync
         g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
     }
+
+    rdev.dwFlags = RIDEV_REMOVE;
+    RegisterRawInputDevices(&rdev, 1, sizeof(rdev));
 
     // Cleanup
     ImGui_ImplDX11_Shutdown();
@@ -242,6 +267,56 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd,
 // Generally you may always pass all inputs to dear imgui, and hide them from
 // your application based on those two flags.
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    if (msg == WM_INPUT) {
+        UINT dwSize;
+        HRESULT hResult;
+        STRSAFE_LPSTR szTempOutput;
+
+        GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize,
+                        sizeof(RAWINPUTHEADER));
+        LPBYTE lpb = new BYTE[dwSize];
+
+        if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, lpb, &dwSize,
+                            sizeof(RAWINPUTHEADER)) != dwSize)
+            OutputDebugString(
+                TEXT("GetRawInputData does not return correct size !\n"));
+
+        RAWINPUT *raw = (RAWINPUT *)lpb;
+
+        if (raw->header.dwType == RIM_TYPEKEYBOARD) {
+            hResult = StringCchPrintf(
+                szTempOutput, STRSAFE_MAX_CCH,
+                TEXT(" Kbd: make=%04x Flags:%04x Reserved:%04x "
+                     "ExtraInformation:%08x, msg=%04x VK=%04x \n"),
+                raw->data.keyboard.MakeCode, raw->data.keyboard.Flags,
+                raw->data.keyboard.Reserved,
+                raw->data.keyboard.ExtraInformation, raw->data.keyboard.Message,
+                raw->data.keyboard.VKey);
+            if (FAILED(hResult)) {
+                // TODO: write error handler
+            }
+            OutputDebugString(szTempOutput);
+        } else if (raw->header.dwType == RIM_TYPEMOUSE) {
+            hResult = StringCchPrintf(
+                szTempOutput, STRSAFE_MAX_CCH,
+                TEXT("Mouse: usFlags=%04x ulButtons=%04x usButtonFlags=%04x "
+                     "usButtonData=%04x ulRawButtons=%04x lLastX=%04x "
+                     "lLastY=%04x ulExtraInformation=%04x\r\n"),
+                raw->data.mouse.usFlags, raw->data.mouse.ulButtons,
+                raw->data.mouse.usButtonFlags, raw->data.mouse.usButtonData,
+                raw->data.mouse.ulRawButtons, raw->data.mouse.lLastX,
+                raw->data.mouse.lLastY, raw->data.mouse.ulExtraInformation);
+
+            if (FAILED(hResult)) {
+                // TODO: write error handler
+            }
+            OutputDebugString(szTempOutput);
+        }
+
+        delete[] lpb;
+        return 0;
+    }
+
     if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
         return true;
 
