@@ -1,5 +1,6 @@
 -I./src/imgui/
 -I./src/imgui/backends/
+-I./build/include
 -static-libgcc
 -static-libstdc++
 -static
