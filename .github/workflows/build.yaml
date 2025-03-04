@@ -9,21 +9,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # - name: Set up MinGW
-      #   uses: egor-tensin/setup-mingw@v2
-      #   with:
-      #     platform: x64
-      - name: Build
-        run: which find
-        shell: bash
-      
       - name: Build
         run: make
         shell: bash
-
-      - name: Build
-        run: which find
-        shell: pwsh
 
       - name: Release
         uses: softprops/action-gh-release@v2
