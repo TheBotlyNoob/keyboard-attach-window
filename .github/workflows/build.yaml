@@ -13,9 +13,17 @@ jobs:
       #   uses: egor-tensin/setup-mingw@v2
       #   with:
       #     platform: x64
+      - name: Build
+        run: which find
+        shell: bash
+      
+      - name: Build
+        run: make
+        shell: bash
 
       - name: Build
-        run: mingw32-make
+        run: which find
+        shell: pwsh
 
       - name: Release
         uses: softprops/action-gh-release@v2
