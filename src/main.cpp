@@ -15,10 +15,13 @@
 #include <d3d11.h>
 #include <hidusage.h>
 #include <iostream>
+#include <stdint.h>
 #include <tchar.h>
 #include <windows.h>
 
-#include <strsafe.h>
+// the goal FPS for both the GUI and the message handlers (will impact
+// keypresses)
+const DWORD GOAL_FPS = 60;
 
 // Data
 static ID3D11Device *g_pd3dDevice = nullptr;
@@ -103,7 +106,11 @@ int main(int, char **) {
 
     // Main loop
     bool done = false;
+    DWORD last_time = GetTickCount();
+    DWORD now;
+
     while (!done) {
+
         // Poll and handle messages (inputs, window resize, etc.)
         // See the WndProc() function below for our to dispatch events to the
         // Win32 backend.
@@ -159,6 +166,18 @@ int main(int, char **) {
         HRESULT hr = g_pSwapChain->Present(1, 0); // Present with vsync
         // HRESULT hr = g_pSwapChain->Present(0, 0); // Present without vsync
         g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
+
+        now = GetTickCount();
+        if (((GOAL_FPS * 1000 - now - last_time) / 1000) == 0) {
+            Sleep(1000 / GOAL_FPS);
+        } else {
+            DWORD toSleep =
+                1000 / ((GOAL_FPS * 1000 - (now - last_time)) / 1000);
+            // std::cout << "sleeping: " << toSleep << std::endl;
+            Sleep(toSleep);
+        }
+
+        last_time = GetTickCount();
     }
 
     rdev.dwFlags = RIDEV_REMOVE;
@@ -270,7 +289,6 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     if (msg == WM_INPUT) {
         UINT dwSize;
         HRESULT hResult;
-        STRSAFE_LPSTR szTempOutput;
 
         GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize,
                         sizeof(RAWINPUTHEADER));
@@ -278,39 +296,48 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
         if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, lpb, &dwSize,
                             sizeof(RAWINPUTHEADER)) != dwSize)
-            OutputDebugString(
-                TEXT("GetRawInputData does not return correct size !\n"));
+            std::cout << "GetRawInputData does not return correct size !"
+                      << std::endl;
 
         RAWINPUT *raw = (RAWINPUT *)lpb;
 
-        if (raw->header.dwType == RIM_TYPEKEYBOARD) {
-            hResult = StringCchPrintf(
-                szTempOutput, STRSAFE_MAX_CCH,
-                TEXT(" Kbd: make=%04x Flags:%04x Reserved:%04x "
-                     "ExtraInformation:%08x, msg=%04x VK=%04x \n"),
-                raw->data.keyboard.MakeCode, raw->data.keyboard.Flags,
-                raw->data.keyboard.Reserved,
-                raw->data.keyboard.ExtraInformation, raw->data.keyboard.Message,
-                raw->data.keyboard.VKey);
-            if (FAILED(hResult)) {
-                // TODO: write error handler
-            }
-            OutputDebugString(szTempOutput);
-        } else if (raw->header.dwType == RIM_TYPEMOUSE) {
-            hResult = StringCchPrintf(
-                szTempOutput, STRSAFE_MAX_CCH,
-                TEXT("Mouse: usFlags=%04x ulButtons=%04x usButtonFlags=%04x "
-                     "usButtonData=%04x ulRawButtons=%04x lLastX=%04x "
-                     "lLastY=%04x ulExtraInformation=%04x\r\n"),
-                raw->data.mouse.usFlags, raw->data.mouse.ulButtons,
-                raw->data.mouse.usButtonFlags, raw->data.mouse.usButtonData,
-                raw->data.mouse.ulRawButtons, raw->data.mouse.lLastX,
-                raw->data.mouse.lLastY, raw->data.mouse.ulExtraInformation);
+        UINT pcbSize = 0;
 
-            if (FAILED(hResult)) {
-                // TODO: write error handler
-            }
-            OutputDebugString(szTempOutput);
+        GetRawInputDeviceInfo(raw->header.hDevice, RIDI_DEVICENAME, nullptr,
+                              &pcbSize);
+
+        if (pcbSize == 0) {
+            std::cout << "GetRawInputDeviceInfo returned 0 for size!"
+                      << std::endl;
+            return 0;
+        }
+
+        LPTSTR devName = (LPTSTR)malloc(pcbSize);
+
+        if (devName == nullptr) {
+            std::cout << "malloc failed" << std::endl;
+            exit(1);
+        }
+
+        if (GetRawInputDeviceInfo(raw->header.hDevice, RIDI_DEVICENAME, devName,
+                                  &pcbSize) < 0) {
+            std::cout << "GetRawInputDeviceInfo returned value < 0"
+                      << std::endl;
+            return 0;
+        }
+
+        if (raw->header.dwType == RIM_TYPEKEYBOARD) {
+            RAWKEYBOARD kbd = raw->data.keyboard;
+
+            // std::cout << std::hex << "Kbd: make=" << kbd.MakeCode
+            //           << " Flags:" << kbd.Flags << " Reserved:" <<
+            //           kbd.Reserved
+            //           << " ExtraInformation:" << kbd.ExtraInformation
+            //           << ", msg=" << kbd.Message << " VK=" << kbd.VKey
+            //           << " deviceName='" << devName << "'" << std::dec
+            //           << std::endl;
+        } else if (raw->header.dwType == RIM_TYPEMOUSE) {
+            std::cout << "mouse?";
         }
 
         delete[] lpb;
