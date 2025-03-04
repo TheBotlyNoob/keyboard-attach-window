@@ -35,16 +35,16 @@ CPPFLAGS := $(INC_FLAGS) -MMD -MP -static
 
 EXTRA_FLAGS := $(shell cat compile_flags.txt)
 # The final build step.
-$(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
+$(BUILD_DIR)/$(TARGET_EXEC): $(OBJS) compile_flags.txt
 	$(CXX) $(OBJS) -o $@ $(LDFLAGS) $(EXTRA_FLAGS)
 
 # Build step for C source
-$(BUILD_DIR)/%.c.o: %.c
+$(BUILD_DIR)/%.c.o: %.c compile_flags.txt
 	mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(EXTRA_FLAGS) -c $< -o $@
 
 # Build step for C++ source
-$(BUILD_DIR)/%.cpp.o: %.cpp
+$(BUILD_DIR)/%.cpp.o: %.cpp compile_flags.txt
 	mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(EXTRA_FLAGS) -c $< -o $@
 

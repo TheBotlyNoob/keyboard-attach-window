@@ -8,4 +8,5 @@
 -ld3dcompiler
 -ld3d11
 -lgdi32
+-O3
 
