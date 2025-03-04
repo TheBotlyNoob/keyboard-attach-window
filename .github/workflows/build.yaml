@@ -15,7 +15,7 @@ jobs:
       #     platform: x64
 
       - name: Build
-        run: make
+        run: mingw32-make
 
       - name: Release
         uses: softprops/action-gh-release@v2
