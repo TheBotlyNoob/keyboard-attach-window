@@ -34,6 +34,7 @@ INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 CPPFLAGS := $(INC_FLAGS) -MMD -MP -static
 
 EXTRA_FLAGS := $(shell cat compile_flags.txt)
+
 # The final build step.
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS) compile_flags.txt
 	$(CXX) $(OBJS) -o $@ $(LDFLAGS) $(EXTRA_FLAGS)
