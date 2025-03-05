@@ -16,7 +16,7 @@ jobs:
         run: sudo apt-get install mingw-w64 -y
 
       - name: Build
-        run: make
+        run: find /usr -name "libhid.a" && make -j3
         shell: bash
 
       - name: Release
