@@ -13,6 +13,7 @@
 #include "imgui_impl_dx11.h"
 #include "imgui_impl_win32.h"
 #include <d3d11.h>
+#include <hidsdi.h>
 #include <hidusage.h>
 #include <iostream>
 #include <stdint.h>
@@ -292,7 +293,8 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
         GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize,
                         sizeof(RAWINPUTHEADER));
-        LPBYTE lpb = new BYTE[dwSize];
+
+        LPBYTE lpb = (LPBYTE)malloc(dwSize);
 
         if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, lpb, &dwSize,
                             sizeof(RAWINPUTHEADER)) != dwSize)
@@ -312,7 +314,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return 0;
         }
 
-        LPTSTR devName = (LPTSTR)malloc(pcbSize);
+        LPTSTR devName = (LPTSTR)malloc(pcbSize * sizeof(TCHAR));
 
         if (devName == nullptr) {
             std::cout << "malloc failed" << std::endl;
@@ -326,21 +328,33 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return 0;
         }
 
+        LPTSTR productStr = (LPTSTR)malloc(400);
+
+        HANDLE dev = CreateFile(devName, GENERIC_READ | GENERIC_WRITE,
+                                FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+
+        if (!HidD_GetProductString(dev, (PVOID)productStr, 400)) {
+            std::cout << "couldn't get product str" << std::endl;
+            return 0;
+        };
+
         if (raw->header.dwType == RIM_TYPEKEYBOARD) {
             RAWKEYBOARD kbd = raw->data.keyboard;
 
-            // std::cout << std::hex << "Kbd: make=" << kbd.MakeCode
-            //           << " Flags:" << kbd.Flags << " Reserved:" <<
-            //           kbd.Reserved
-            //           << " ExtraInformation:" << kbd.ExtraInformation
-            //           << ", msg=" << kbd.Message << " VK=" << kbd.VKey
-            //           << " deviceName='" << devName << "'" << std::dec
-            //           << std::endl;
+            std::cout << std::hex << "Kbd: make=" << kbd.MakeCode
+                      << " Flags:" << kbd.Flags << " Reserved:" << kbd.Reserved
+                      << " ExtraInformation:" << kbd.ExtraInformation
+                      << ", msg=" << kbd.Message << " VK=" << kbd.VKey
+                      << " deviceName='" << productStr << "'" << std::dec
+                      << std::endl;
         } else if (raw->header.dwType == RIM_TYPEMOUSE) {
             std::cout << "mouse?";
         }
 
-        delete[] lpb;
+        free(lpb);
+        free(devName);
+        free(productStr);
+
         return 0;
     }
 
