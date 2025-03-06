@@ -7,6 +7,10 @@
 // folder).
 // - Introduction, links and more at the top of imgui.cpp
 
+#include <cmath>
+#define UNICODE
+#define _UNICODE
+
 #include "appfont.h"
 #include "gui.h"
 #include "imgui.h"
@@ -51,7 +55,7 @@ int main(int, char **) {
                       WndProc,
                       0L,
                       0L,
-                      GetModuleHandle(nullptr),
+                      GetModuleHandleW(nullptr),
                       nullptr,
                       nullptr,
                       nullptr,
@@ -64,8 +68,8 @@ int main(int, char **) {
         100, 100, 1280, 800, nullptr, nullptr, wc.hInstance, nullptr);
 
     if (!hwnd) {
-        MessageBox(nullptr, "Failed to create window", "Error",
-                   MB_OK | MB_ICONERROR);
+        MessageBoxW(nullptr, L"Failed to create window", L"Error",
+                    MB_OK | MB_ICONERROR);
         return 1;
     }
 
@@ -77,16 +81,16 @@ int main(int, char **) {
     rdev.dwFlags = RIDEV_INPUTSINK | RIDEV_NOHOTKEYS;
     rdev.hwndTarget = hwnd;
     if (!RegisterRawInputDevices(&rdev, 1, sizeof(rdev))) {
-        MessageBox(nullptr, "Failed to attach raw input device", "Error!",
-                   MB_OK | MB_ICONERROR);
+        MessageBoxW(nullptr, L"Failed to attach raw input device", L"Error!",
+                    MB_OK | MB_ICONERROR);
         UnregisterClassW(wc.lpszClassName, wc.hInstance);
         return 1;
     }
 
     // Initialize Direct3D
     if (!CreateDeviceD3D(hwnd)) {
-        MessageBox(nullptr, "Failed to initialize Direct3D", "Error!",
-                   MB_OK | MB_ICONERROR);
+        MessageBoxW(nullptr, L"Failed to initialize Direct3D", L"Error!",
+                    MB_OK | MB_ICONERROR);
 
         CleanupDeviceD3D();
 
@@ -119,9 +123,9 @@ int main(int, char **) {
         // See the WndProc() function below for our to dispatch events to the
         // Win32 backend.
         MSG msg;
-        while (::PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
+        while (::PeekMessageW(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
             ::TranslateMessage(&msg);
-            ::DispatchMessage(&msg);
+            ::DispatchMessageW(&msg);
             if (msg.message == WM_QUIT)
                 done = true;
         }
@@ -297,19 +301,17 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize,
                         sizeof(RAWINPUTHEADER));
 
-        LPBYTE lpb = (LPBYTE)malloc(dwSize);
+        RAWINPUT *raw = (RAWINPUT *)malloc(dwSize);
 
-        if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, lpb, &dwSize,
+        if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, raw, &dwSize,
                             sizeof(RAWINPUTHEADER)) != dwSize)
             std::cout << "GetRawInputData does not return correct size !"
                       << std::endl;
 
-        RAWINPUT *raw = (RAWINPUT *)lpb;
+        uint32_t pcbSize = 0;
 
-        UINT pcbSize = 0;
-
-        GetRawInputDeviceInfo(raw->header.hDevice, RIDI_DEVICENAME, nullptr,
-                              &pcbSize);
+        GetRawInputDeviceInfoW(raw->header.hDevice, RIDI_DEVICENAME, nullptr,
+                               &pcbSize);
 
         if (pcbSize == 0) {
             std::cout << "GetRawInputDeviceInfo returned 0 for size!"
@@ -331,30 +333,51 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return 0;
         }
 
-        LPTSTR productStr = (LPTSTR)malloc(400);
+        uint8_t tries = 4;
+        LPWSTR productStr = (LPWSTR)malloc(std::pow(2, tries) * sizeof(WCHAR));
+
+        if (productStr == nullptr) {
+            std::cout << "malloc failed" << std::endl;
+            exit(1);
+        }
+
+        std::cout << std::hex << productStr[0] << std::dec << std::endl;
 
         HANDLE dev = CreateFile(devName, GENERIC_READ | GENERIC_WRITE,
                                 FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
 
-        if (!HidD_GetProductString(dev, (PVOID)productStr, 400)) {
-            std::cout << "couldn't get product str" << std::endl;
-            return 0;
+        while (!HidD_GetProductString(dev, (PVOID)productStr,
+                                      std::pow(2, tries) * sizeof(WCHAR))) {
+            if (tries > 10) {
+                break;
+            }
+
+            tries++;
+
+            productStr =
+                (LPWSTR)realloc(productStr, std::pow(2, tries) * sizeof(WCHAR));
+
+            if (productStr == nullptr) {
+                std::cout << "realloc failed" << std::endl;
+                exit(1);
+            }
         };
+        std::cout << std::hex << productStr[0] << std::dec << std::endl;
 
         if (raw->header.dwType == RIM_TYPEKEYBOARD) {
             RAWKEYBOARD kbd = raw->data.keyboard;
 
-            std::cout << std::hex << "Kbd: make=" << kbd.MakeCode
-                      << " Flags:" << kbd.Flags << " Reserved:" << kbd.Reserved
-                      << " ExtraInformation:" << kbd.ExtraInformation
-                      << ", msg=" << kbd.Message << " VK=" << kbd.VKey
-                      << " deviceName='" << productStr << "'" << std::dec
-                      << std::endl;
+            std::wcout << std::hex << "Kbd: make=" << kbd.MakeCode
+                       << " Flags:" << kbd.Flags << " Reserved:" << kbd.Reserved
+                       << " ExtraInformation:" << kbd.ExtraInformation
+                       << ", msg=" << kbd.Message << " VK=" << kbd.VKey
+                       << " deviceName='" << productStr << "'" << std::dec
+                       << std::endl;
         } else if (raw->header.dwType == RIM_TYPEMOUSE) {
             std::cout << "mouse?";
         }
 
-        free(lpb);
+        free(raw);
         free(devName);
         free(productStr);
 
