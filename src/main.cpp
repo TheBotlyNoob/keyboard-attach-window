@@ -333,21 +333,19 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return 0;
         }
 
-        uint8_t tries = 4;
-        LPWSTR productStr = (LPWSTR)malloc(std::pow(2, tries) * sizeof(WCHAR));
+        uint8_t tries = 5;
+        LPWSTR productStr = (LPWSTR)malloc((1 << tries) * sizeof(WCHAR));
 
         if (productStr == nullptr) {
             std::cout << "malloc failed" << std::endl;
             exit(1);
         }
 
-        std::cout << std::hex << productStr[0] << std::dec << std::endl;
-
         HANDLE dev = CreateFile(devName, GENERIC_READ | GENERIC_WRITE,
                                 FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
 
         while (!HidD_GetProductString(dev, (PVOID)productStr,
-                                      std::pow(2, tries) * sizeof(WCHAR))) {
+                                      (1 << tries) * sizeof(WCHAR))) {
             if (tries > 10) {
                 break;
             }
@@ -355,14 +353,15 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             tries++;
 
             productStr =
-                (LPWSTR)realloc(productStr, std::pow(2, tries) * sizeof(WCHAR));
+                (LPWSTR)realloc(productStr, (1 << tries) * sizeof(WCHAR));
 
             if (productStr == nullptr) {
                 std::cout << "realloc failed" << std::endl;
                 exit(1);
             }
         };
-        std::cout << std::hex << productStr[0] << std::dec << std::endl;
+
+        std::cout << std::hex << "TYPE: " << raw->header.dwType << std::endl;
 
         if (raw->header.dwType == RIM_TYPEKEYBOARD) {
             RAWKEYBOARD kbd = raw->data.keyboard;

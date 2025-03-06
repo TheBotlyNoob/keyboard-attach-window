@@ -2,26 +2,30 @@ name: Main
 
 on: push
 
-
 jobs:
-  build:
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    build:
+        permissions:
+            contents: write
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
 
-      - name: Install mingw-w64
-        run: sudo apt-get install mingw-w64 -y
+            - name: Install mingw-w64
+              run: sudo apt-get install gcc-mingw-w64 g++-mingw-w64 -y
 
-      - name: Build
-        run: find /usr -name "libhid.a" && make -j3
-        shell: bash
+            - name: Build
+              run: make -j3
+              shell: bash
 
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: build/split.exe
+            - uses: actions/upload-artifact@v4
+              if: startsWith(github.ref, 'refs/tags/') == false
+              with:
+                  name: binary
+                  path: build/split.exe
 
+            - name: Release
+              uses: softprops/action-gh-release@v2
+              if: startsWith(github.ref, 'refs/tags/') == true
+              with:
+                  files: build/split.exe
