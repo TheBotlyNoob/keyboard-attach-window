@@ -1,12 +1,3 @@
-// Dear ImGui: standalone example application for DirectX 11
-
-// Learn about Dear ImGui:
-// - FAQ                  https://dearimgui.com/faq
-// - Getting Started      https://dearimgui.com/getting-started
-// - Documentation        https://dearimgui.com/docs (same as your local docs/
-// folder).
-// - Introduction, links and more at the top of imgui.cpp
-
 #include <cmath>
 #define UNICODE
 #define _UNICODE
@@ -316,6 +307,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         if (pcbSize == 0) {
             std::cout << "GetRawInputDeviceInfo returned 0 for size!"
                       << std::endl;
+            free(raw);
             return 0;
         }
 
@@ -323,6 +315,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
         if (devName == nullptr) {
             std::cout << "malloc failed" << std::endl;
+            free(raw);
             exit(1);
         }
 
@@ -330,6 +323,8 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                                   &pcbSize) < 0) {
             std::cout << "GetRawInputDeviceInfo returned value < 0"
                       << std::endl;
+            free(raw);
+            free(devName);
             return 0;
         }
 
@@ -338,6 +333,8 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
         if (productStr == nullptr) {
             std::cout << "malloc failed" << std::endl;
+            free(raw);
+            free(devName);
             exit(1);
         }
 
@@ -352,13 +349,18 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
             tries++;
 
-            productStr =
-                (LPWSTR)realloc(productStr, (1 << tries) * sizeof(WCHAR));
+            LPWSTR newProductStr = (LPWSTR)realloc(productStr, (1 << tries) * sizeof(WCHAR));
 
-            if (productStr == nullptr) {
+            if (newProductStr == nullptr) {
                 std::cout << "realloc failed" << std::endl;
+                free(raw);
+                free(devName);
+                free(productStr);
+                CloseHandle(dev);
                 exit(1);
             }
+
+            productStr = newProductStr;
         };
 
         std::cout << std::hex << "TYPE: " << raw->header.dwType << std::endl;
@@ -376,9 +378,10 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             std::cout << "mouse?";
         }
 
-        free(raw);
-        free(devName);
         free(productStr);
+        CloseHandle(dev);
+        free(devName);
+        free(raw);
 
         return 0;
     }
