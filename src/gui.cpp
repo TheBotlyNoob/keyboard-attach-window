@@ -1,6 +1,7 @@
 #include "gui.h"
 #include "appfont.h"
 #include "imgui.h"
+#include "keyboard.h"
 #include <iostream>
 
 AppGui::AppGui() : io(ImGui::GetIO()) { InitImGui(); }
@@ -97,6 +98,14 @@ void AppGui::ImGuiNewFrame() {
                     1000.0f / io.Framerate, io.Framerate);
         ImGui::End();
     }
+
+    ImGui::Begin("keyboards");
+    for (auto &keyboard : devices.GetList()) {
+        std::cout << keyboard.GetName() << std::endl;
+
+        ImGui::Text("KEYBOARD: %s", keyboard.GetName().c_str());
+    }
+    ImGui::End();
 
     // 3. Show another simple window.
     if (show_another_window) {

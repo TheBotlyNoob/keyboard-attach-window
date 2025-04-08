@@ -1,4 +1,3 @@
-#include <cmath>
 #define UNICODE
 #define _UNICODE
 
@@ -7,6 +6,8 @@
 #include "imgui.h"
 #include "imgui_impl_dx11.h"
 #include "imgui_impl_win32.h"
+#include <cmath>
+#include <cstdint>
 #include <d3d11.h>
 #include <iostream>
 #include <stdint.h>
@@ -286,8 +287,7 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd,
 // your application based on those two flags.
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     if (msg == WM_INPUT) {
-        UINT dwSize;
-        HRESULT hResult;
+        uint32_t dwSize;
 
         GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize,
                         sizeof(RAWINPUTHEADER));
@@ -299,88 +299,100 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             std::cout << "GetRawInputData does not return correct size !"
                       << std::endl;
 
-        uint32_t pcbSize = 0;
+        Keyboard keybd(raw->header.hDevice);
 
-        GetRawInputDeviceInfoW(raw->header.hDevice, RIDI_DEVICENAME, nullptr,
-                               &pcbSize);
+        // uint32_t pcbSize = 0;
 
-        if (pcbSize == 0) {
-            std::cout << "GetRawInputDeviceInfo returned 0 for size!"
-                      << std::endl;
-            free(raw);
-            return 0;
-        }
+        // GetRawInputDeviceInfoW(raw->header.hDevice, RIDI_DEVICENAME, nullptr,
+        //                        &pcbSize);
 
-        LPTSTR devName = (LPTSTR)malloc(pcbSize * sizeof(TCHAR));
+        // if (pcbSize == 0) {
+        //     std::cout << "GetRawInputDeviceInfo returned 0 for size!"
+        //               << std::endl;
+        //     std::cout << "last error = " << std::hex << GetLastError()
+        //               << std::dec << std::endl;
+        //     free(raw);
+        //     return 0;
+        // }
 
-        if (devName == nullptr) {
-            std::cout << "malloc failed" << std::endl;
-            free(raw);
-            exit(1);
-        }
+        // LPTSTR devName = (LPTSTR)malloc(pcbSize * sizeof(TCHAR));
 
-        if (GetRawInputDeviceInfo(raw->header.hDevice, RIDI_DEVICENAME, devName,
-                                  &pcbSize) < 0) {
-            std::cout << "GetRawInputDeviceInfo returned value < 0"
-                      << std::endl;
-            free(raw);
-            free(devName);
-            return 0;
-        }
+        // if (devName == nullptr) {
+        //     std::cout << "malloc failed" << std::endl;
+        //     free(raw);
+        //     exit(1);
+        // }
 
-        uint8_t tries = 5;
-        LPWSTR productStr = (LPWSTR)malloc((1 << tries) * sizeof(WCHAR));
+        // if (GetRawInputDeviceInfo(raw->header.hDevice, RIDI_DEVICENAME,
+        // devName,
+        //                           &pcbSize) < 0) {
+        //     std::cout << "GetRawInputDeviceInfo returned value < 0"
+        //               << std::endl;
+        //     free(raw);
+        //     free(devName);
+        //     return 0;
+        // }
 
-        if (productStr == nullptr) {
-            std::cout << "malloc failed" << std::endl;
-            free(raw);
-            free(devName);
-            exit(1);
-        }
+        // uint8_t tries = 5;
+        // LPWSTR productStr = (LPWSTR)malloc((1 << tries) * sizeof(WCHAR));
 
-        HANDLE dev = CreateFile(devName, GENERIC_READ | GENERIC_WRITE,
-                                FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+        // if (productStr == nullptr) {
+        //     std::cout << "malloc failed" << std::endl;
+        //     free(raw);
+        //     free(devName);
+        //     exit(1);
+        // }
 
-        while (!HidD_GetProductString(dev, (PVOID)productStr,
-                                      (1 << tries) * sizeof(WCHAR))) {
-            if (tries > 10) {
-                break;
-            }
+        // HANDLE dev = CreateFile(devName, GENERIC_READ | GENERIC_WRITE,
+        //                         FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0,
+        //                         NULL);
 
-            tries++;
+        // std::cout << std::hex << "last error = " << GetLastError() <<
+        // std::dec
+        //           << std::endl;
 
-            LPWSTR newProductStr = (LPWSTR)realloc(productStr, (1 << tries) * sizeof(WCHAR));
+        // while (!HidD_GetProductString(dev, (PVOID)productStr,
+        //                               (1 << tries) * sizeof(WCHAR))) {
+        //     if (tries > 10) {
+        //         break;
+        //     }
 
-            if (newProductStr == nullptr) {
-                std::cout << "realloc failed" << std::endl;
-                free(raw);
-                free(devName);
-                free(productStr);
-                CloseHandle(dev);
-                exit(1);
-            }
+        //     tries++;
 
-            productStr = newProductStr;
-        };
+        //     LPWSTR newProductStr =
+        //         (LPWSTR)realloc(productStr, (1 << tries) * sizeof(WCHAR));
 
-        std::cout << std::hex << "TYPE: " << raw->header.dwType << std::endl;
+        //     if (newProductStr == nullptr) {
+        //         std::cout << "realloc failed" << std::endl;
+        //         free(raw);
+        //         free(devName);
+        //         free(productStr);
+        //         CloseHandle(dev);
+        //         exit(1);
+        //     }
+
+        //     productStr = newProductStr;
+        // };
+
+        // std::cout << std::hex << "last error = " << GetLastError() <<
+        // std::dec
+        //           << std::endl;
+
+        // std::cout << std::hex << "TYPE: " << raw->header.dwType << std::endl;
 
         if (raw->header.dwType == RIM_TYPEKEYBOARD) {
             RAWKEYBOARD kbd = raw->data.keyboard;
 
-            std::wcout << std::hex << "Kbd: make=" << kbd.MakeCode
-                       << " Flags:" << kbd.Flags << " Reserved:" << kbd.Reserved
-                       << " ExtraInformation:" << kbd.ExtraInformation
-                       << ", msg=" << kbd.Message << " VK=" << kbd.VKey
-                       << " deviceName='" << productStr << "'" << std::dec
-                       << std::endl;
+            std::cout << std::hex << "Kbd: make=" << kbd.MakeCode
+                      << " Flags:" << kbd.Flags << " Reserved:" << kbd.Reserved
+                      << " ExtraInformation:" << kbd.ExtraInformation
+                      << ", msg=" << kbd.Message << " VK=" << kbd.VKey
+                      << " deviceName='" << keybd.GetName() << "'" << std::dec
+                      << std::endl;
         } else if (raw->header.dwType == RIM_TYPEMOUSE) {
             std::cout << "mouse?";
         }
 
-        free(productStr);
-        CloseHandle(dev);
-        free(devName);
         free(raw);
 
         return 0;

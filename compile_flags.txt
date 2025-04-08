@@ -10,3 +10,4 @@
 -lgdi32
 -lhid
 -O3
+-I./src/
