@@ -9,7 +9,10 @@ class AppGui {
     bool show_demo_window = true;
     bool show_another_window = false;
     ImFont *font;
-    KeyboardDevices devices;
+    KeyboardDevices deviceController;
+    std::vector<Keyboard> deviceList;
+    std::vector<std::string> deviceNames;
+    std::string name = "HEY!";
 
   public:
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);

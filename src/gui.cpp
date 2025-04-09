@@ -28,6 +28,8 @@ void AppGui::InitImGui() {
     // ImGui::StyleColorsDark();
     ImGui::StyleColorsLight();
 
+    deviceList = deviceController.getList();
+
     // Load Fonts
     // - If no fonts are loaded, dear imgui will use the default font. You
     // can also load multiple fonts and use ImGui::PushFont()/PopFont() to
@@ -99,12 +101,12 @@ void AppGui::ImGuiNewFrame() {
         ImGui::End();
     }
 
-    ImGui::Begin("keyboards");
-    for (auto &keyboard : devices.GetList()) {
-        std::cout << keyboard.GetName() << std::endl;
+    ImGui::Begin("Keyboards");
+    deviceNames.clear();
+    deviceNames.emplace_back(&"WDWD?W?D?"[std::rand() % 3]);
 
-        ImGui::Text("KEYBOARD: %s", keyboard.GetName().c_str());
-    }
+    ImGui::Text("KEYBOARD: %s", deviceNames[0].c_str());
+
     ImGui::End();
 
     // 3. Show another simple window.

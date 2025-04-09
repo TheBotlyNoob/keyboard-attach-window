@@ -8,17 +8,19 @@
 
 class Keyboard {
   private:
+    std::string name;
+
   public:
-    winutil::Handle mDevHandle;
+    winutil::Handle m_device;
 
     Keyboard(winutil::Handle);
+    Keyboard(HANDLE);
 
-    std::string GetName();
-    std::string GetId();
+    std::string getName();
 };
 
 class KeyboardDevices {
   public:
-    std::vector<Keyboard> GetList();
+    std::vector<Keyboard> getList() const;
 };
 #endif

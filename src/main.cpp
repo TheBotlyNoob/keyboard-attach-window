@@ -387,7 +387,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                       << " Flags:" << kbd.Flags << " Reserved:" << kbd.Reserved
                       << " ExtraInformation:" << kbd.ExtraInformation
                       << ", msg=" << kbd.Message << " VK=" << kbd.VKey
-                      << " deviceName='" << keybd.GetName() << "'" << std::dec
+                      << " deviceName='" << keybd.getName() << "'" << std::dec
                       << std::endl;
         } else if (raw->header.dwType == RIM_TYPEMOUSE) {
             std::cout << "mouse?";

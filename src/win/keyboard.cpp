@@ -1,5 +1,6 @@
 #ifdef _WIN32
 
+#include <handleapi.h>
 #include <iostream>
 #include <stdint.h>
 #include <vector>
@@ -13,37 +14,46 @@ extern "C" {
 #include "keyboard.h"
 #include "win/winutil.h"
 
-Keyboard::Keyboard(winutil::Handle dev) : mDevHandle(nullptr) {}
+Keyboard::Keyboard(winutil::Handle device) : Keyboard(Keyboard(device.get())) {}
 
-std::string Keyboard::GetName() {
+Keyboard::Keyboard(HANDLE inputdev) : name() {
     uint32_t pcbSize = 0;
 
-    GetRawInputDeviceInfoW(mDevice.handle(), RIDI_DEVICENAME, nullptr,
-                           &pcbSize);
+    GetRawInputDeviceInfoW(inputdev, RIDI_DEVICENAME, nullptr, &pcbSize);
 
     if (pcbSize == 0) {
-        return std::string();
+        std::cout << winutil::GetLastErrorAsString() << std::hex << " "
+                  << inputdev << std::endl;
+        throw std::runtime_error("GetRawInputDeviceInfoW failed to get size");
     }
 
-    std::vector<wchar_t> devName;
-    devName.resize(pcbSize);
+    std::vector<wchar_t> devName(pcbSize);
 
-    if (GetRawInputDeviceInfoW(mDevice.handle(), RIDI_DEVICENAME,
-                               devName.data(), &pcbSize) < 0) {
-        std::cout << "GetRawInputDeviceInfo returned value < 0" << std::endl;
-        return std::string();
-    }
-
-    uint8_t tries = 5;
-    std::vector<wchar_t> productStr;
-    productStr.resize(1 << tries);
-
-    winutil::Handle dev =
+    GetRawInputDeviceInfoW(inputdev, RIDI_DEVICENAME, devName.data(), &pcbSize);
+    HANDLE dev =
         CreateFileW(devName.data(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
                     OPEN_EXISTING, 0, NULL);
 
-    while (!HidD_GetProductString(dev.handle(), productStr.data(),
+    m_device.reset(dev);
+}
+
+std::string Keyboard::getName() {
+    if (name != "") {
+        return name;
+    }
+
+    std::cout << "redoing name";
+
+    uint8_t tries = 5;
+    std::vector<wchar_t> productStr(1 << tries);
+
+    while (!HidD_GetProductString(m_device.get(), productStr.data(),
                                   productStr.size())) {
+        if (GetLastError() == ERROR_INVALID_HANDLE) {
+            throw std::runtime_error(
+                "HidD_GetProductString failed: invalid handle");
+        }
+
         if (tries > 10) {
             break;
         }
@@ -53,12 +63,14 @@ std::string Keyboard::GetName() {
         productStr.resize(1 << tries);
     };
 
-    std::wstring str = std::wstring(productStr.data());
+    std::string str = winutil::ws2s(std::wstring(productStr.data()));
 
-    return winutil::ws2s(str);
+    name = str;
+
+    return name;
 }
 
-std::vector<Keyboard> KeyboardDevices::GetList() {
+std::vector<Keyboard> KeyboardDevices::getList() const {
     uint32_t numDevices = 0;
     if (GetRawInputDeviceList(nullptr, &numDevices,
                               sizeof(RAWINPUTDEVICELIST)) != 0) {
@@ -66,18 +78,20 @@ std::vector<Keyboard> KeyboardDevices::GetList() {
                   << GetLastError() << std::dec << std::endl;
     };
 
-    std::vector<RAWINPUTDEVICELIST> devices;
-    devices.resize(numDevices);
+    std::vector<RAWINPUTDEVICELIST> devices(numDevices);
 
-    GetRawInputDeviceList(devices.data(), &numDevices,
-                          sizeof(RAWINPUTDEVICELIST));
+    if (GetRawInputDeviceList(devices.data(), &numDevices,
+                              sizeof(RAWINPUTDEVICELIST)) != 0) {
+    };
 
     // TODO: this doesn't seem very efficient
 
     std::vector<Keyboard> keyboards;
+    keyboards.reserve(numDevices);
 
-    for (int i = 0; i < numDevices; i++) {
-        keyboards.emplace_back(new Keyboard(devices[i].hDevice));
+    for (tagRAWINPUTDEVICELIST &dev : devices) {
+        Keyboard k(dev.hDevice);
+        keyboards.emplace_back(std::move(k));
     }
 
     return keyboards;
