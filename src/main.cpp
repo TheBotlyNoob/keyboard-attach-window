@@ -1,3 +1,4 @@
+#include "keyboard.h"
 #define UNICODE
 #define _UNICODE
 
@@ -299,7 +300,9 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             std::cout << "GetRawInputData does not return correct size !"
                       << std::endl;
 
-        Keyboard keybd(raw->header.hDevice);
+        winutil::Handle handle(raw->header.hDevice);
+
+        Keyboard keybd(std::move(handle));
 
         // uint32_t pcbSize = 0;
 

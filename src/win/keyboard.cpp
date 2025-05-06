@@ -1,3 +1,4 @@
+#include <stdexcept>
 #ifdef _WIN32
 
 #include <handleapi.h>
@@ -14,63 +15,50 @@ extern "C" {
 #include "keyboard.h"
 #include "win/winutil.h"
 
-Keyboard::Keyboard(winutil::Handle device) : Keyboard(Keyboard(device.get())) {}
-
-Keyboard::Keyboard(HANDLE inputdev) : name() {
+Keyboard::Keyboard(winutil::Handle inputdev) {
     uint32_t pcbSize = 0;
 
-    GetRawInputDeviceInfoW(inputdev, RIDI_DEVICENAME, nullptr, &pcbSize);
+    GetRawInputDeviceInfoW(inputdev.get(), RIDI_DEVICENAME, nullptr, &pcbSize);
 
     if (pcbSize == 0) {
         std::cout << winutil::GetLastErrorAsString() << std::hex << " "
-                  << inputdev << std::endl;
+                  << inputdev.get() << std::endl;
         throw std::runtime_error("GetRawInputDeviceInfoW failed to get size");
     }
 
     std::vector<wchar_t> devName(pcbSize);
 
-    GetRawInputDeviceInfoW(inputdev, RIDI_DEVICENAME, devName.data(), &pcbSize);
+    GetRawInputDeviceInfoW(inputdev.get(), RIDI_DEVICENAME, devName.data(),
+                           &pcbSize);
     HANDLE dev =
-        CreateFileW(devName.data(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                    OPEN_EXISTING, 0, NULL);
+        CreateFileW(devName.data(), NULL, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                    NULL, OPEN_EXISTING, 0, NULL);
 
     m_device.reset(dev);
-}
 
-std::string Keyboard::getName() {
-    if (name != "") {
-        return name;
+    const uint32_t productStrMaxSize = 4093;
+    wchar_t productStr[productStrMaxSize];
+
+    // TODO: fallback to deviceNode if this fails
+    if (!HidD_GetProductString(m_device.get(), &productStr,
+                               productStrMaxSize)) {
+        throw std::runtime_error("HidD_GetProductString failed");
     }
 
-    std::cout << "redoing name";
+    name = winutil::ws2s(std::wstring(productStr));
 
-    uint8_t tries = 5;
-    std::vector<wchar_t> productStr(1 << tries);
+    _HIDD_ATTRIBUTES attrs;
+    if (!HidD_GetAttributes(m_device.get(), &attrs)) {
+        throw std::runtime_error("HidD_GetAttributes failed");
+    }
 
-    while (!HidD_GetProductString(m_device.get(), productStr.data(),
-                                  productStr.size())) {
-        if (GetLastError() == ERROR_INVALID_HANDLE) {
-            throw std::runtime_error(
-                "HidD_GetProductString failed: invalid handle");
-        }
-
-        if (tries > 10) {
-            break;
-        }
-
-        tries++;
-
-        productStr.resize(1 << tries);
-    };
-
-    std::string str = winutil::ws2s(std::wstring(productStr.data()));
-
-    name = str;
-
-    return name;
+    attributes = KeyboardAttributes{attrs.VendorID, attrs.ProductID,
+                                    attrs.VersionNumber};
 }
 
-std::vector<Keyboard> KeyboardDevices::getList() const {
+const std::string Keyboard::getName() const { return name; }
+
+std::vector<Keyboard> KeyboardDevices::getList() {
     uint32_t numDevices = 0;
     if (GetRawInputDeviceList(nullptr, &numDevices,
                               sizeof(RAWINPUTDEVICELIST)) != 0) {
@@ -84,14 +72,11 @@ std::vector<Keyboard> KeyboardDevices::getList() const {
                               sizeof(RAWINPUTDEVICELIST)) != 0) {
     };
 
-    // TODO: this doesn't seem very efficient
-
     std::vector<Keyboard> keyboards;
     keyboards.reserve(numDevices);
 
     for (tagRAWINPUTDEVICELIST &dev : devices) {
-        Keyboard k(dev.hDevice);
-        keyboards.emplace_back(std::move(k));
+        keyboards.emplace_back(Keyboard(winutil::Handle(dev.hDevice)));
     }
 
     return keyboards;

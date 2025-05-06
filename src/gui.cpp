@@ -2,14 +2,9 @@
 #include "appfont.h"
 #include "imgui.h"
 #include "keyboard.h"
-#include <iostream>
+#include <cstdio>
 
-AppGui::AppGui() : io(ImGui::GetIO()) { InitImGui(); }
-
-// assumes ImGui context is already created
-void AppGui::InitImGui() {
-    std::cout << "INIT IMGUI" << std::endl;
-
+AppGui::AppGui() : io(ImGui::GetIO()) {
     io.ConfigFlags |=
         ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
     io.ConfigFlags |=
@@ -27,8 +22,6 @@ void AppGui::InitImGui() {
     // Setup Dear ImGui style
     // ImGui::StyleColorsDark();
     ImGui::StyleColorsLight();
-
-    deviceList = deviceController.getList();
 
     // Load Fonts
     // - If no fonts are loaded, dear imgui will use the default font. You
@@ -102,11 +95,11 @@ void AppGui::ImGuiNewFrame() {
     }
 
     ImGui::Begin("Keyboards");
-    deviceNames.clear();
-    deviceNames.emplace_back(&"WDWD?W?D?"[std::rand() % 3]);
-
-    ImGui::Text("KEYBOARD: %s", deviceNames[0].c_str());
-
+    for (auto &keyboard : keyboards.getList()) {
+        std::string name = keyboard.getName();
+        bool s = false;
+        ImGui::Checkbox(name.c_str(), &s);
+    }
     ImGui::End();
 
     // 3. Show another simple window.
